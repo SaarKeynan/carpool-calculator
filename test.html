@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        #canvas {
+            border: 1px solid #000;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+    <h2>Carpool Calculator</h2>
+    <canvas id="canvas" width="600" height="400"></canvas>
+    <br>
+    <button id="clear">Clear Canvas</button>
+    <button id="generate">Generate Path</button>
+    <button id="driver">Toggle Driver Mode</button>
+    <button id="goal">Toggle Goal Mode</button>
+    <button id="test">Input Test Configuration</button>
+    <p>Coordinates:</p>
+    <pre id="coordinates"></pre>
+    <script src="algorithm.js"></script>
+    <script>
+        let coordinates = [];
+        let driverArr = [];
+        document.addEventListener("DOMContentLoaded", function () {
+            // Drivers
+            let driverMode = false
+            let goalMode = false
+            let goal;
+            // Canvas
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            ctx.strokeStyle = "#FFAACC";
+            ctx.lineWidth = 1;
+            // Update coordinates display
+            function updateCoordinates() {
+                document.getElementById("coordinates").textContent = JSON.stringify(coordinates, null, 2);
+            }
+
+            // Handle canvas click
+            canvas.addEventListener("click", function (event) {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                // Save coordinates
+                coordinates.push([x, y]);
+
+                if(driverMode)
+                    driverArr.push(coordinates.length-1)
+
+                if(goalMode)
+                    goal = coordinates.length-1
+                
+                // Update coordinates display
+                updateCoordinates();
+                redrawCanvas()
+            });
+
+            document.getElementById("driver").addEventListener("click", function () {
+                driverMode = !driverMode
+                goalMode = false
+            });
+
+            document.getElementById("test").addEventListener("click", function () {
+                for(let i = 0; i < 31; i++) {
+                    coordinates = coordinates.concat([[random(0, 600), random(0, 400)]])
+                }
+                for (let j = 2; j < 12; j++) {
+                    driverArr.push(coordinates.length-j)
+                }
+                goal = coordinates.length-1
+                updateCoordinates();
+                redrawCanvas();
+            });
+
+            document.getElementById("goal").addEventListener("click", function () {
+                goalMode = !goalMode
+                driverMode = false
+            });
+
+            function drawPoints() {
+                for(let i = 0; i < coordinates.length; i++) {
+                    ctx.beginPath();
+                    ctx.arc(coordinates[i][0], coordinates[i][1], 5, 0, 2 * Math.PI);
+                    if(goal == i)
+                        ctx.fillStyle = "#c911f7";
+                    else if(driverArr.includes(i))
+                        ctx.fillStyle = "#1ee82f";
+                    else
+                        ctx.fillStyle = "#FF0000";
+                    ctx.fill();
+                    ctx.closePath();
+                }
+                
+            }
+            function redrawCanvas() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawPoints()
+            }
+
+            function clearCanvas() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                coordinates = []
+                driverArr = []
+                goal = 0
+                updateCoordinates();
+            }
+
+            // Clear canvas and coordinates
+            document.getElementById("clear").addEventListener("click", function () {
+                clearCanvas()
+            });
+
+            document.getElementById("generate").addEventListener("click", function () {
+                // Runs the simulation, uses 2 passengers per driver by default.
+                h = runSimulation(genDistanceMatrix(), driverArr, new Array(driverArr.length).fill(2), goal)
+                let i = 0
+                repeater = setInterval(function() {
+                    if(i == h.length) {
+                        clearInterval(repeater)
+                        return
+                    }
+                    drawAllPaths(h[i++])
+                }, 50)
+            });
+
+            function genDistanceMatrix() {
+                let dm = new Array(coordinates.length)
+                for(let i = 0; i < coordinates.length; i++) {
+                    dm[i] = new Array(coordinates.length)
+                    for(let j = 0; j < coordinates.length; j++) {
+                            dm[i][j] = calcDistance(coordinates[i], coordinates[j])
+                    }
+                }
+                return dm
+            }
+
+            function drawAllPaths(population) {
+                redrawCanvas()
+                let path;
+                let pathSize;
+                let running = 0;
+                for(let i = 0; i < driverArr.length;i++){
+                    path = [driverArr[i]]
+                    pathSize = population[population.length-driverArr.length+i]
+                    path = path.concat(population.slice(running, pathSize+running))
+                    path.push(goal)
+                    drawDriverPath(path)
+                    running += pathSize
+                }
+            }
+        
+            function drawDriverPath(path){
+                if (canvas.getContext) {
+                    for(let i = 1; i < path.length; i++){
+                        ctx.moveTo(coordinates[path[i-1]][0], coordinates[path[i-1]][1])
+                        ctx.lineTo(coordinates[path[i]][0], coordinates[path[i]][1])
+                        ctx.stroke()
+                    }
+                    ctx.closePath();
+                }
+            }
+
+            function calcDistance(p1, p2) {
+                return Math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+            }
+        });
+    </script>
+</body>
+</html>
